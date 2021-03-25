@@ -12,6 +12,7 @@ var jwt = require('jsonwebtoken');
 var cors = require('cors');
 var User = require('./Users');
 var Movie = require('./Movies');
+var Review = require('./Reviews');
 
 var app = express();
 app.use(cors());
@@ -194,6 +195,64 @@ router.route('/movies')
         }
     )
 
+/* ******************************************************************************************************
+                       Review Database
+*******************************************************************************************************/
+router.route('/reviews')
+
+    .get(authJwtController.isAuthenticated, function (req, res) {
+        if (!req.body)
+        {
+            res.json({success:false, message: "Provide a movie review"});
+        }
+        else
+        {
+            Review.find({title:req.body.title}).select("title userID comment rating").exec(function(err, review)
+            {
+                if (err)
+                {
+                    res.status(403).json({success: false, message: "Unable to find movie"});
+                }
+                if (movie)
+                {
+                    res.status(200).json({success: true, message: "Review Found", Review: review})
+                }
+                else
+                {
+                    res.status(404).json({success: false, message: "Review Not Found"});
+
+                }
+            })
+        }
+    })
+    .post(authJwtController.isAuthenticated, function (req, res) {
+
+        if (!req.body.title || !req.body.userID || !req.body.comment || !req.body.rating) {
+            res.json({success: false, message: "Incorrect Format"});
+        }
+        else
+        {
+            var review = new Review();
+
+            review.title = req.body.title;
+            review.userID = req.body.userID;
+            review.comment = req.body.comment;
+            review.rating = req.body.rating;
+
+            review.save(function (err)
+            {
+                if (err)
+                {
+                    if (err.code == 11000)
+                        return res.json({success: false, message: "Error Saving Review"});
+                    else
+                        return res.json(err);
+                }
+            })
+            res.json({success: true, msg: 'Review Added'});
+
+        }
+    })
 
   
 
