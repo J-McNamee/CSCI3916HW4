@@ -148,8 +148,7 @@ router.route('/movies')
         if (!req.body.title || !req.body.year || !req.body.genre || !req.body.actorsName[0] || !req.body.actorsName[1] || !req.body.actorsName[2]) {
             res.json({success: false, message: "Incorrect Format"});
         }
-        else
-            {
+        else {
             var movie = new Movie();
 
             movie.title = req.body.title;
@@ -157,18 +156,23 @@ router.route('/movies')
             movie.genre = req.body.genre;
             movie.actorsName = req.body.actorsName;
 
-            movie.save(function (err)
-            {
-                if (err)
-                {
-                    if (err.code == 11000)
-                        return res.json({success: false, message: "Error saving Movie"});
-                    else
-                        return res.json(err);
+            Movie.find({title: req.body.title}, function (err, movies) {
+                if (err) {
+                    return res.json(err)
+                } else if (!movies) {
+                    movie.save(function (err, movie) {
+                        if (err) {
+                            if (err.code == 11000)
+                                return res.json({success: false, message: "Error saving Movie"});
+                            else
+                                return res.json(err);
+                        }
+                        res.json({success: true, msg: 'Movie Added'});
+                    })
+                } else {
+                    res.json({success: false, msg: 'Movie already in database'})
                 }
             })
-            res.json({success: true, msg: 'Movie Added'});
-
         }
     })
 
@@ -200,35 +204,58 @@ router.route('/movies')
 *******************************************************************************************************/
 router.route('/reviews')
 
-    .get(authJwtController.isAuthenticated, function (req, res) {
-        if (!req.body)
+    .get(function (req, res) {
+        if (!req.body || req.query.reviews !== "true")
         {
-            res.json({success:false, message: "Provide a movie review"});
+            res.json({success:false, message: "Missing Information"});
         }
+        /*
+        else if(!review)
+        {
+            res.status(404).json({success: false, message: "Review Not Found"});
+
+        }
+         */
         else
         {
-            Review.find({title:req.body.title}).select("title userID comment rating").exec(function(err, review)
+            Review.findOne({title:req.body.title},function(err, review1)
             {
                 if (err)
                 {
-                    res.status(403).json({success: false, message: "Unable to find movie"});
-                }
-                if (movie)
-                {
-                    res.status(200).json({success: true, message: "Review Found", Review: review})
+                    return res.status(403).json({success: false, message: "Unable to find movie"});
                 }
                 else
                 {
-                    res.status(404).json({success: false, message: "Review Not Found"});
+                    Movie.aggregate([
+                        {
+                            $match : {title: req.body.title}
+                        },
+                        {
+                            $lookup: {
+                                from: "reviews",
+                                localField: "title",
+                                foreignField: "title",
+                                as: "movies_reviews_joins_docs"
+                            }
+                        }
+                        ])
 
+                        .exec(function (err, movie) {
+                            if (err) {
+                                return res.json(err);
+                            } else {
+                                return res.json(movie);
+                            }
+                        })
                 }
+
             })
         }
     })
     .post(authJwtController.isAuthenticated, function (req, res) {
 
-        if (!req.body.title || !req.body.userID || !req.body.comment || !req.body.rating) {
-            res.json({success: false, message: "Incorrect Format"});
+        if (!req.body.title || !req.body.userID || !req.body.comment || !req.body.rating || req.query.reviews !== "true") {
+            res.json({success: false, message: "Missing information"});
         }
         else
         {
@@ -239,17 +266,30 @@ router.route('/reviews')
             review.comment = req.body.comment;
             review.rating = req.body.rating;
 
-            review.save(function (err)
-            {
+            Movie.find({title: req.body.title}, function (err, movies) {
                 if (err)
                 {
-                    if (err.code == 11000)
-                        return res.json({success: false, message: "Error Saving Review"});
-                    else
-                        return res.json(err);
+                    return res.json(err)
                 }
+                else if(movies === Array(0))
+                {
+                    res.json({success: false, msg: 'Movie not in database'})
+                }
+                else
+                {
+                    review.save(function (err, movie) {
+                        if (err)
+                        {
+                            if (err.code == 11000)
+                                return res.json({success: false, message: "Error saving review"});
+                            else
+                                return res.json(err);
+                        }
+                        res.json({success: true, msg: 'Review Added'});
+                    })
+                }
+
             })
-            res.json({success: true, msg: 'Review Added'});
 
         }
     })
