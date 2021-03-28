@@ -271,7 +271,7 @@ router.route('/reviews')
                 {
                     return res.json(err)
                 }
-                else if(movies === Array(0))
+                else if(movies.length == 0)
                 {
                     res.json({success: false, msg: 'Movie not in database'})
                 }
